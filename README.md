@@ -1,52 +1,132 @@
-# IntelMklSrc in Kotlin
+# intel-mkl-src-kotlin in Kotlin
 
-[![GitHub link](https://img.shields.io/badge/GitHub-KotlinMania%2Fintel--mkl--src--kotlin-blue.svg)](https://github.com/KotlinMania/intel-mkl-src-kotlin)
+[![GitHub link](https://img.shields.io/badge/GitHub-KotlinMania%2Fintel-mkl-src-kotlin-blue.svg)](https://github.com/KotlinMania/intel-mkl-src-kotlin)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.kotlinmania/intel-mkl-src-kotlin)](https://central.sonatype.com/artifact/io.github.kotlinmania/intel-mkl-src-kotlin)
 [![Build status](https://img.shields.io/github/actions/workflow/status/KotlinMania/intel-mkl-src-kotlin/ci.yml?branch=main)](https://github.com/KotlinMania/intel-mkl-src-kotlin/actions)
 
-Kotlin Multiplatform line-by-line clean-room port of the Rust crate [`intel-mkl-src`](https://crates.io/crates/intel-mkl-src).
+This is a Kotlin Multiplatform line-by-line transliteration port of [`intel-mkl-src`](https://github.com/huggingface/candle).
 
-> **Status: scaffold — porting has not started.** This repo currently contains build infrastructure only. The upstream Rust source for the `intel-mkl-src` crate will be cloned into `tmp/` (gitignored) when porting begins.
+**Original Project:** This port is based on [`intel-mkl-src`](https://github.com/huggingface/candle). All design credit and project intent belong to the upstream authors; this repository is a faithful port to Kotlin Multiplatform with no behavioural changes intended.
 
-## About
+### Porting status
 
-Rust crate `intel-mkl-src`: Intel Math Kernel Library linkage.
+This is an **in-progress port**. The goal is feature parity with the upstream Rust crate while providing a native Kotlin Multiplatform API. Every Kotlin file carries a `// port-lint: source <path>` header naming its upstream Rust counterpart so the AST-distance tool can track provenance.
 
-This port targets functional parity with the upstream Rust crate while presenting an idiomatic Kotlin Multiplatform API. Every Kotlin file is a faithful translation of an upstream Rust file and carries a `// port-lint: source <path>` header so the AST-distance tool can track provenance.
+---
 
-## Supported targets
+## Upstream README — `intel-mkl-src`
 
-- macOS arm64 / x64
-- Linux x64
-- Windows mingw-x64
-- iOS arm64 / x64 / simulator-arm64
-- JS (browser + Node.js)
-- Wasm-JS (browser + Node.js)
-- Android (API 24+)
+> The text below is reproduced from [`https://github.com/huggingface/candle`](https://github.com/huggingface/candle). It is the upstream project's own description and remains under the upstream authors' authorship; links have been rewritten to absolute upstream URLs where appropriate so they continue to resolve from this repository.
 
-## Installation
+# intel-mkl-src
 
-Once published:
+|crate         | crate.io                                                                                               | docs.rs                                                                               | master                                                                                                                                    | description                                                           |
+|:-------------|:-------------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------|
+|intel-mkl-src | [![crate](https://img.shields.io/crates/v/intel-mkl-src.svg)](https://crates.io/crates/intel-mkl-src)  | [![docs.rs](https://docs.rs/intel-mkl-src/badge.svg)](https://docs.rs/intel-mkl-src)  | [![crate](https://img.shields.io/badge/master-intel--mkl--src-blue)](https://rust-math.github.io/intel-mkl-src/intel_mkl_src/index.html)  | Source crate for Intel-MKL                                            |
+|intel-mkl-sys | [![Crate](https://img.shields.io/crates/v/intel-mkl-sys.svg)](https://crates.io/crates/intel-mkl-sys)  | [![docs.rs](https://docs.rs/intel-mkl-sys/badge.svg)](https://docs.rs/intel-mkl-sys)  | [![Crate](https://img.shields.io/badge/master-intel--mkl--sys-blue)](https://rust-math.github.io/intel-mkl-src/intel_mkl_sys/index.html)  | FFI for Intel-MKL [vector math][VM], and [statistical functions][VSL] |
+|intel-mkl-tool| [![Crate](https://img.shields.io/crates/v/intel-mkl-tool.svg)](https://crates.io/crates/intel-mkl-tool)| [![docs.rs](https://docs.rs/intel-mkl-tool/badge.svg)](https://docs.rs/intel-mkl-tool)| [![Crate](https://img.shields.io/badge/master-intel--mkl--tool-blue)](https://rust-math.github.io/intel-mkl-src/intel_mkl_tool/index.html)| Seek Intel-MKL libraries from filesystem                              |
+
+[VM]:  https://software.intel.com/en-us/mkl-developer-reference-c-vector-mathematical-functions
+[VSL]: https://software.intel.com/en-us/mkl-developer-reference-c-statistical-functions
+
+## Usage
+
+`intel-mkl-src` crate is a `*-src` crate. This links MKL libraries to executable build by cargo, but does not provide Rust bindings.
+Please use `blas-sys`, `lapack-sys`, or `fftw-sys` to use BLAS, LAPACK, FFTW interface of MKL, e.g.
+
+```toml
+[dependencies]
+fftw-sys = { version = "0.4", features = ["intel-mkl"] }
+```
+
+Binding to MKL specific features are provided by `intel-mkl-sys` crate. This contains 
+
+- [Vector Mathematical Functions](https://www.intel.com/content/www/us/en/develop/documentation/onemkl-developer-reference-c/top/vector-mathematical-functions.html)
+- [Statistical Functions](https://www.intel.com/content/www/us/en/develop/documentation/onemkl-developer-reference-c/top/statistical-functions.html)
+
+## How to find system MKL libraries
+
+`intel-mkl-tool` crate seeks system MKL library installed by various installer as following manner:
+
+- Seek using `pkg-config` command
+- Seek `${MKLROOT}` directory
+- Seek default installation path
+  - `/opt/intel/mkl` for Linux
+  - `C:/Program Files (x86)/IntelSWTools/` and `C:/Program Files (x86)/Intel/oneAPI` for Windows
+
+If `intel-mkl-tool` does not find MKL library, `intel-mkl-src` try to download MKL binaries from [GitHub Container Registry (ghcr.io)](https://github.com/orgs/rust-math/packages?repo_name=rust-mkl-container).
+
+## Supported features
+
+There are 8 (=2x2x2) `mkl-*-*-*` features to specify how to link MKL libraries.
+If any feature is set, default to `mkl-static-ilp64-iomp`.
+
+### Link type (`static` or `dynamic`)
+`dynamic` means MKL is linked dynamically, i.e. the executable does not contains MKL libraries
+and will seek them from filesystem while execution.
+This is better choice when the MKL libraries are managed by the system package manager e.g. `apt`.
+
+`static` means MKL is linked statically, i.e. the MKL binaries are embedded in the executable file.
+This is better choice when creating portable executable.
+
+### Data model (`lp64` or `ilp64`)
+
+This specify the data model:
+
+- `ilp64` means `int` (i), `long` (l), and pointers (p) are 64-bit.
+- `lp64` means `long` (l) and pointers (p) are 64-bit, `int` is 32-bit.
+
+### Thread management (`iomp` or `seq`)
+
+- `iomp` means MKL uses Intel OpenMP runtime
+- `seq` means sequential (single thread) execution
+
+Using GNU OpenMP runtime (`libgomp`) is not supported yet. Please see https://github.com/rust-math/intel-mkl-src/issues/97
+
+## License
+MKL is distributed under the Intel Simplified Software License for Intel(R) Math Kernel Library, See [License.txt](License.txt).
+Some wrapper codes are licensed by MIT License (see the header of each file).
+
+---
+
+## About this Kotlin port
+
+### Installation
 
 ```kotlin
 dependencies {
-    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.0-SNAPSHOT")
+    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.0")
 }
 ```
 
-## Build
+### Building
 
 ```bash
 ./gradlew build
 ./gradlew test
 ```
 
-## Porting guidelines
+### Targets
 
-See [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) for translator discipline, port-lint header convention, and Rust → Kotlin idiom mapping.
+- macOS arm64
+- Linux x64
+- Windows mingw-x64
+- iOS arm64 / simulator-arm64 (Swift export + XCFramework)
+- JS (browser + Node.js)
+- Wasm-JS (browser + Node.js)
+- Android (API 24+)
 
-## License
+### Porting guidelines
 
-Apache 2.0 — see [LICENSE](LICENSE).
+See [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) for translator discipline, port-lint header convention, and Rust → Kotlin idiom mapping.
 
-Original work copyrighted by the upstream `intel-mkl-src` authors. Kotlin port copyright (c) 2026 Sydney Renee and The Solace Project.
+### License
+
+This Kotlin port is distributed under the same license terms as the upstream [`intel-mkl-src`](https://github.com/huggingface/candle). See [LICENSE](LICENSE) (and any sibling `LICENSE-*` / `NOTICE` files mirrored from upstream) for the full text.
+
+Original work copyrighted by the intel-mkl-src authors.  
+Kotlin port: Copyright (c) 2026 Sydney Renee and The Solace Project.
+
+### Acknowledgments
+
+Thanks to the [`intel-mkl-src`](https://github.com/huggingface/candle) maintainers and contributors for the original Rust implementation. This port reproduces their work in Kotlin Multiplatform; bug reports about upstream design or behavior should go to the upstream repository.
