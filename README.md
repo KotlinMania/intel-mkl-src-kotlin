@@ -97,7 +97,7 @@ Some wrapper codes are licensed by MIT License (see the header of each file).
 
 ```kotlin
 dependencies {
-    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.0")
+    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.1")
 }
 ```
 
