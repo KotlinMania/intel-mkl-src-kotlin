@@ -4,19 +4,21 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.kotlinmania/intel-mkl-src-kotlin)](https://central.sonatype.com/artifact/io.github.kotlinmania/intel-mkl-src-kotlin)
 [![Build status](https://img.shields.io/github/actions/workflow/status/KotlinMania/intel-mkl-src-kotlin/ci.yml?branch=main)](https://github.com/KotlinMania/intel-mkl-src-kotlin/actions)
 
-This is a Kotlin Multiplatform line-by-line transliteration port of [`intel-mkl-src`](https://github.com/huggingface/candle).
+This is a Kotlin Multiplatform port of the build-configuration policy in [`intel-mkl-src`](https://github.com/rust-math/intel-mkl-src).
 
-**Original Project:** This port is based on [`intel-mkl-src`](https://github.com/huggingface/candle). All design credit and project intent belong to the upstream authors; this repository is a faithful port to Kotlin Multiplatform with no behavioural changes intended.
+**Original Project:** This port is based on [`intel-mkl-src`](https://github.com/rust-math/intel-mkl-src). The configuration choices and fallback rules follow the upstream build script.
 
 ### Porting status
 
-This is an **in-progress port**. The goal is feature parity with the upstream Rust crate while providing a native Kotlin Multiplatform API. Every Kotlin file carries a `// port-lint: source <path>` header naming its upstream Rust counterpart so the AST-distance tool can track provenance.
+The Kotlin API implements the portable configuration policy from upstream `build.rs`: selection of all eight MKL linkage features, the default static ILP64 Intel OpenMP configuration, system-library priority, and static-package fallback references for Linux and Windows. Derived source files carry a `// port-lint: source <path>` header.
+
+This artifact provides build-configuration data. It does not contain Intel MKL binaries, discover installed libraries, download OCI packages, emit native linker flags, or expose BLAS/LAPACK bindings. Those operations belong to the consuming native build. The upstream library source has no runtime declarations; its behavior lives in the build script.
 
 ---
 
 ## Upstream README — `intel-mkl-src`
 
-> The text below is reproduced from [`https://github.com/huggingface/candle`](https://github.com/huggingface/candle). It is the upstream project's own description and remains under the upstream authors' authorship; links have been rewritten to absolute upstream URLs where appropriate so they continue to resolve from this repository.
+> The text below is reproduced from [`https://github.com/rust-math/intel-mkl-src`](https://github.com/rust-math/intel-mkl-src). It is the upstream project's own description and remains under the upstream authors' authorship; links have been rewritten to absolute upstream URLs where appropriate so they continue to resolve from this repository.
 
 # intel-mkl-src
 
@@ -95,7 +97,7 @@ Some wrapper codes are licensed by MIT License (see the header of each file).
 
 ```kotlin
 dependencies {
-    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.0")
+    implementation("io.github.kotlinmania:intel-mkl-src-kotlin:0.1.1")
 }
 ```
 
@@ -104,29 +106,48 @@ dependencies {
 ```bash
 ./gradlew build
 ./gradlew test
+./gradlew setupAndroidSdk centralPortalBundle -PRELEASE_SIGNING_ENABLED=false
 ```
+
+The final command stages every publication and creates the complete unsigned deployment bundle without uploading it. CI runs this same publication graph.
+
+### Configuration policy
+
+```kotlin
+import io.github.kotlinmania.intelmklsrc.MklBuildConfiguration
+
+val configuration = MklBuildConfiguration.fromFeatures(listOf("mkl-static-lp64-seq"))
+val fallback = configuration.fallbackPackage("linux", systemLibraryFound = false)
+// ghcr.io/rust-math/rust-mkl/linux/mkl-static-lp64-seq:2020.1-3038006115
+```
+
+An empty feature list selects `mkl-static-ilp64-iomp`. Conflicting MKL features are rejected. A discovered system library, dynamic linkage, or any target OS other than `linux` or `windows` yields no fallback package.
 
 ### Targets
 
-- macOS arm64
-- Linux x64
-- Windows mingw-x64
-- iOS arm64 / simulator-arm64 (Swift export + XCFramework)
+- JVM and Android (API 24+)
 - JS (browser + Node.js)
 - Wasm-JS (browser + Node.js)
-- Android (API 24+)
+- Wasm-WASI (Node.js)
+- Linux x64 / ARM64 and Windows x64
+- Android Native ARM64 / x64
+- macOS ARM64, iOS ARM64 / simulator ARM64, tvOS ARM64 / simulator ARM64, watchOS device ARM64 / simulator ARM64
+
+These targets run the portable configuration API. They do not imply that native Intel MKL binaries are available for each target. Apple targets also expose the configuration API through Swift Export and XCFrameworks.
 
 ### Porting guidelines
 
-See [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) for translator discipline, port-lint header convention, and Rust → Kotlin idiom mapping.
+See [AGENTS.md](AGENTS.md) for translator discipline, port-lint header convention, and Rust → Kotlin idiom mapping.
 
 ### License
 
-This Kotlin port is distributed under the same license terms as the upstream [`intel-mkl-src`](https://github.com/huggingface/candle). See [LICENSE](LICENSE) (and any sibling `LICENSE-*` / `NOTICE` files mirrored from upstream) for the full text.
+The configuration policy translated from the upstream build script retains its [MIT license](LICENSE-MIT) and Toshiki Teramura attribution. Intel MKL binaries are distributed separately under Intel's terms.
+
+The existing repository [LICENSE](LICENSE) contains the Apache 2.0 terms; [LICENSE-MIT](LICENSE-MIT) contains the terms for the translated configuration code.
 
 Original work copyrighted by the intel-mkl-src authors.  
 Kotlin port: Copyright (c) 2026 Sydney Renee and The Solace Project.
 
 ### Acknowledgments
 
-Thanks to the [`intel-mkl-src`](https://github.com/huggingface/candle) maintainers and contributors for the original Rust implementation. This port reproduces their work in Kotlin Multiplatform; bug reports about upstream design or behavior should go to the upstream repository.
+Thanks to the [`intel-mkl-src`](https://github.com/rust-math/intel-mkl-src) maintainers and contributors for the original Rust implementation. This port reproduces their work in Kotlin Multiplatform; bug reports about upstream design or behavior should go to the upstream repository.
