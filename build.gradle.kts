@@ -364,16 +364,41 @@ tasks
         dependsOn(ensureAndroidSdk)
     }
 
-// Gap #9b: KGP-generated bridge boilerplate and KotlinCoroutineSupport runtime
-// produce warnings (unchecked casts, unused expressions, opt-in requirements)
-// that cannot be fixed in source — they are regenerated every build.
+val jvmToolchainVersion = providers.gradleProperty("jvm.toolchain").getOrElse("21").toInt()
+
+// KGP 2.4.20 always emits its coroutine runtime, including for synchronous APIs.
+// Repair its warning-producing source without relaxing the compiler gate. Star
+// projections retain the runtime type check and expose iterator values as Any?.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
     if (name.startsWith("compileSwiftExport")) {
-        compilerOptions.allWarningsAsErrors.set(false)
+        doFirst {
+            val replacements =
+                listOf(
+                    "@OptIn(InternalCoroutinesApi::class, kotlin.concurrent.atomics.ExperimentalAtomicApi::class)" to
+                        "@OptIn(InternalCoroutinesApi::class, InternalForInheritanceCoroutinesApi::class, kotlin.concurrent.atomics.ExperimentalAtomicApi::class)",
+                    "state.error?.let { throw it } ?: null" to "state.error?.let { throw it }",
+                    "as SwiftFlowIterator<kotlin.Any?>" to "as SwiftFlowIterator<*>",
+                    "arg0: SwiftFlowIterator<kotlin.Any?>.Value?" to "arg0: SwiftFlowIterator<*>.Value?",
+                )
+            layout.buildDirectory
+                .dir("SwiftExport")
+                .get()
+                .asFile
+                .walkTopDown()
+                .filter { it.name == "KotlinCoroutineSupport.kt" }
+                .forEach { runtime ->
+                    var source = runtime.readText()
+                    for ((original, repaired) in replacements) {
+                        check(original in source || repaired in source) {
+                            "Kotlin Swift coroutine runtime changed; review its warning repairs: $runtime"
+                        }
+                        source = source.replace(original, repaired)
+                    }
+                    runtime.writeText(source)
+                }
+        }
     }
 }
-
-val jvmToolchainVersion = providers.gradleProperty("jvm.toolchain").getOrElse("21").toInt()
 
 // ============================================================================
 // kotlin { … }
@@ -489,10 +514,6 @@ kotlin {
     swiftExport {
         moduleName = frameworkName
         flattenPackage = projectNamespace
-        @OptIn(org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl::class)
-        configure {
-            settings.put("enableCoroutinesSupport", "true")
-        }
     }
 
     // Android KMP library. Block name is `android` — `androidLibrary` is deprecated in current KGP.

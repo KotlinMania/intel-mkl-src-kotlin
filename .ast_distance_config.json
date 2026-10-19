@@ -2,7 +2,7 @@
   "type": "port",
   "name": "intel-mkl-src-kotlin",
   "source": {
-    "path": "tmp/intel-mkl-src/src",
+    "path": "tmp/intel-mkl-src",
     "lang": "rust"
   },
   "target": {
